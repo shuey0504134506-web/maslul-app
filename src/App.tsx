@@ -5,7 +5,7 @@ import { HomeScreen } from '@/screens/Home/HomeScreen';
 import { TimelineScreen } from '@/screens/Timeline/TimelineScreen';
 import { AuthScreen } from '@/screens/Auth/AuthScreen';
 import { useAppStore } from '@/store/useAppStore';
-import { subscribeToAuthChanges, getFamilyIdForUser } from '@/services/auth/authService';
+import { subscribeToAuthChanges, subscribeToUserFamilyId } from '@/services/auth/authService';
 
 const NAV_ITEMS = [
   { to: '/', label: 'בית', icon: Home, end: true },
@@ -21,22 +21,29 @@ export default function App() {
   useEffect(() => {
     // מאזין למצב ההתחברות. Firebase Auth שומר סשן מקומית באופן אוטומטי,
     // כך שאחרי ההתחברות הראשונה הגישה תישמר גם ללא אינטרנט בפתיחות הבאות.
-    const unsubscribe = subscribeToAuthChanges(async (user) => {
+    // שימו לב: כאן רק קובעים userId - את familyId טוענים במאזין נפרד למטה.
+    const unsubscribeAuth = subscribeToAuthChanges((user) => {
       if (!user) {
         setAuthInfo({ userId: null, familyId: null, isAuthLoading: false });
         return;
       }
-      try {
-        const familyId = await getFamilyIdForUser(user.uid);
-        setAuthInfo({ userId: user.uid, familyId, isAuthLoading: false });
-      } catch {
-        // אין רשת כדי לשלוף familyId מפיירסטור - עדיין נחשב מחובר,
-        // וממשיכים עם הנתונים המקומיים הקיימים על המכשיר.
-        setAuthInfo({ userId: user.uid, isAuthLoading: false });
-      }
+      setAuthInfo({ userId: user.uid });
     });
-    return unsubscribe;
+    return unsubscribeAuth;
   }, [setAuthInfo]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    // מאזין חי (לא קריאה חד-פעמית) לרשומת המשפחה. זה פותר את מרוץ התזמון:
+    // ברגע ההרשמה, ensureFamilyExists עדיין כותב את רשומת המשפחה ברקע.
+    // עם מאזין חי, ברגע שהיא נכתבת בפועל - העדכון מגיע אוטומטית,
+    // גם אם ה-snapshot הראשון שהתקבל היה עדיין null.
+    const unsubscribeFamily = subscribeToUserFamilyId(userId, (familyId) => {
+      setAuthInfo({ familyId, isAuthLoading: false });
+    });
+    return unsubscribeFamily;
+  }, [userId, setAuthInfo]);
 
   if (isAuthLoading) {
     return (
