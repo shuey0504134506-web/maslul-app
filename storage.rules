@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// נתיב הקבצים: families/{familyId}/milestones/{milestoneId}/{fileId}
+// גישה מותנית בחברות פעילה במשפחה, נבדקת מול Firestore.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isFamilyMember(familyId) {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/families/$(familyId)/members/$(request.auth.uid));
+    }
+
+    match /families/{familyId}/{allPaths=**} {
+      allow read: if isFamilyMember(familyId);
+      allow write: if isFamilyMember(familyId)
+        // הגבלת גודל: עד 200MB לקובץ בודד (סרטונים כלולים)
+        && request.resource.size < 200 * 1024 * 1024;
+    }
+  }
+}

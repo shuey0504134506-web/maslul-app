@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// עיקרון הבסיס: לכל מסמך יש familyId, ומשתמש רשאי לגשת אליו רק אם הוא
+// חבר רשום במשפחה הזו (families/{familyId}/members/{uid}).
+// כך משפחה אחת לעולם לא יכולה לגשת לנתונים של משפחה אחרת.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isFamilyMember(familyId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+    }
+
+    function canEdit(familyId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid)).data.role in ['owner', 'editor'];
+    }
+
+    match /families/{familyId} {
+      allow read: if isFamilyMember(familyId);
+      allow create: if isSignedIn();
+      allow update, delete: if canEdit(familyId);
+
+      match /members/{memberId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if canEdit(familyId) || request.auth.uid == memberId;
+      }
+    }
+
+    match /children/{childId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
+      allow update, delete: if canEdit(resource.data.familyId);
+    }
+
+    match /milestones/{milestoneId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
+      allow update, delete: if canEdit(resource.data.familyId);
+    }
+
+    match /funnyQuotes/{quoteId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
+      allow update, delete: if canEdit(resource.data.familyId);
+    }
+
+    match /suggestedMilestoneStatus/{statusId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create, update: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
+    }
+
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+  }
+}

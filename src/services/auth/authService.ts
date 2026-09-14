@@ -1,0 +1,82 @@
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  type User
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { v4 as uuid } from 'uuid';
+import { auth, firestore } from '@/services/firebase/config';
+
+const googleProvider = new GoogleAuthProvider();
+
+/**
+ * בהרשמה ראשונה יוצרים גם רשומת "משפחה" חדשה עם המשתמש כ-owner.
+ * זהו ה-familyId שישמש את כל הרשומות (ילדים, ציוני דרך) של המשתמש הזה,
+ * ועליו נשענים כל Security Rules הבידוד בין משפחות.
+ */
+async function ensureFamilyExists(user: User): Promise<string> {
+  const userDocRef = doc(firestore, 'users', user.uid);
+  const userDoc = await getDoc(userDocRef);
+
+  if (userDoc.exists() && userDoc.data().familyId) {
+    return userDoc.data().familyId as string;
+  }
+
+  const familyId = uuid();
+  await setDoc(doc(firestore, 'families', familyId), {
+    ownerId: user.uid,
+    createdAt: serverTimestamp()
+  });
+  await setDoc(doc(firestore, 'families', familyId, 'members', user.uid), {
+    role: 'owner',
+    joinedAt: serverTimestamp()
+  });
+  await setDoc(
+    userDocRef,
+    {
+      displayName: user.displayName ?? '',
+      email: user.email ?? '',
+      photoURL: user.photoURL ?? '',
+      familyId,
+      createdAt: serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return familyId;
+}
+
+export async function signUpWithEmail(email: string, password: string, displayName: string) {
+  const { user } = await createUserWithEmailAndPassword(auth, email, password);
+  await ensureFamilyExists({ ...user, displayName } as User);
+  return user;
+}
+
+export async function signInWithEmail(email: string, password: string) {
+  const { user } = await signInWithEmailAndPassword(auth, email, password);
+  await ensureFamilyExists(user);
+  return user;
+}
+
+export async function signInWithGoogle() {
+  const { user } = await signInWithPopup(auth, googleProvider);
+  await ensureFamilyExists(user);
+  return user;
+}
+
+export async function signOut() {
+  await firebaseSignOut(auth);
+}
+
+export function subscribeToAuthChanges(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
+
+export async function getFamilyIdForUser(userId: string): Promise<string | null> {
+  const userDoc = await getDoc(doc(firestore, 'users', userId));
+  return userDoc.exists() ? (userDoc.data().familyId as string) : null;
+}
