@@ -95,7 +95,7 @@ export function HomeScreen() {
         )}
       </div>
 
-      <a
+      
         href="#/timeline"
         className="mt-4 flex items-center justify-between px-6 py-3 text-sm text-honey-dark"
       >
@@ -107,7 +107,7 @@ export function HomeScreen() {
       {/* כפתור הוספה מהירה - צף */}
       <button
         onClick={() => setQuickAddOpen(true)}
-        className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-honey px-6 py-3.5 text-white shadow-[0_6px_20px_rgba(201,154,75,0.4)] transition hover:bg-honey-dark"
+        className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-honey px-6 py-3.5 text-white shadow-[0_6px_20px_rgba(201,154,75,0.4)] transition hover:bg-honey-dark"
       >
         <Plus size={20} />
         <span className="font-medium">הוסף רגע</span>
