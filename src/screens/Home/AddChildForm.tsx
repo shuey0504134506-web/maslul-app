@@ -12,6 +12,7 @@ export function AddChildForm({ onClose }: { onClose: () => void }) {
   const [gender, setGender] = useState<Gender>(undefined);
   const [themeColor, setThemeColor] = useState(THEME_COLORS[0]);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const setSelectedChildId = useAppStore((s) => s.setSelectedChildId);
 
   const canSave = name.trim().length > 0 && birthDate.length > 0 && !isSaving;
@@ -19,10 +20,17 @@ export function AddChildForm({ onClose }: { onClose: () => void }) {
   async function handleSave() {
     if (!canSave) return;
     setIsSaving(true);
+    setError(null);
     try {
       const child = await createChild({ name: name.trim(), birthDate, gender, themeColor });
       setSelectedChildId(child.id);
       onClose();
+    } catch (err) {
+      // בעבר שגיאה כאן (למשל כשרשומת המשפחה עדיין לא נטענה) נבלעה בשקט.
+      // עכשיו, בזכות תיקון ה-race condition ב-App.tsx, המצב הזה כמעט לא אמור
+      // לקרות - אבל אם בכל זאת קורית שגיאה אחרת, המשתמש חייב לראות אותה.
+      console.error('שגיאה בשמירת ילד חדש:', err);
+      setError('לא הצלחנו לשמור כרגע. נסו שוב בעוד רגע.');
     } finally {
       setIsSaving(false);
     }
@@ -88,6 +96,10 @@ export function AddChildForm({ onClose }: { onClose: () => void }) {
             />
           ))}
         </div>
+
+        {error && (
+          <p className="mb-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
+        )}
 
         <button
           onClick={handleSave}
