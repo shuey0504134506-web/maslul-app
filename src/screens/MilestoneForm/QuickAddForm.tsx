@@ -35,12 +35,14 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
   const [category, setCategory] = useState<MilestoneCategory>('special');
   const [location, setLocation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const canSave = title.trim().length > 0 && !isSaving;
 
   async function handleSave() {
     if (!canSave) return;
     setIsSaving(true);
+    setError(null);
     try {
       const milestone = await createMilestone({
         childIds: [childId],
@@ -57,6 +59,10 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
       }
 
       onClose();
+    } catch (err) {
+      // בעבר שגיאה כאן נבלעה בשקט - אין יותר try/finally בלי catch.
+      console.error('שגיאה בשמירת רגע חדש:', err);
+      setError('לא הצלחנו לשמור את הרגע. נסו שוב בעוד רגע.');
     } finally {
       setIsSaving(false);
     }
@@ -142,6 +148,10 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
               />
             </div>
           </div>
+        )}
+
+        {error && (
+          <p className="mb-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
         )}
 
         <button
