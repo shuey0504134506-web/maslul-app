@@ -7,7 +7,7 @@ import {
   onAuthStateChanged,
   type User
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { v4 as uuid } from 'uuid';
 import { auth, firestore } from '@/services/firebase/config';
 
@@ -79,4 +79,30 @@ export function subscribeToAuthChanges(callback: (user: User | null) => void) {
 export async function getFamilyIdForUser(userId: string): Promise<string | null> {
   const userDoc = await getDoc(doc(firestore, 'users', userId));
   return userDoc.exists() ? (userDoc.data().familyId as string) : null;
+}
+
+/**
+ * מאזין חי (לא קריאה חד-פעמית) לרשומת המשתמש בפיירסטור.
+ *
+ * זה קריטי כדי לפתור מרוץ תזמון: ברגע ההרשמה, מצב האימות (auth state) משתנה
+ * *מיד* אחרי יצירת המשתמש, עוד לפני ש-ensureFamilyExists הספיק לכתוב את
+ * רשומת המשפחה. אם היינו קוראים את familyId פעם אחת בלבד באותו רגע,
+ * היינו מקבלים null לצמיתות (עד רענון ידני של האפליקציה) - וזה בדיוק מה שגרם
+ * לכפתור "הוספת ילד" להיכשל בשקט. עם מאזין חי, ברגע שהרשומה נכתבת בפועל
+ * (שברי שנייה אחר כך), העדכון מגיע אוטומטית וה-UI משתחרר.
+ */
+export function subscribeToUserFamilyId(
+  userId: string,
+  callback: (familyId: string | null) => void
+) {
+  return onSnapshot(
+    doc(firestore, 'users', userId),
+    (snapshot) => {
+      callback(snapshot.exists() ? ((snapshot.data().familyId as string) ?? null) : null);
+    },
+    () => {
+      // כשלון קריאה (למשל בהיעדר רשת) - לא מפילים את האפליקציה,
+      // פשוט משאירים את המצב הקודם עד שהחיבור יחזור.
+    }
+  );
 }
