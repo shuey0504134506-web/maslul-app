@@ -1,0 +1,60 @@
+name: בניית APK לאנדרואיד
+
+# הפעלה אוטומטית בכל עדכון לענף main, וגם ידנית מהלשונית Actions ב-GitHub
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: שכפול הריפו
+        uses: actions/checkout@v4
+
+      - name: התקנת Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: התקנת Java (נדרש ל-Gradle/Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: התקנת תלויות
+        run: npm ci
+
+      # קובץ הסביבה נוצר כאן מ-GitHub Secrets - כך שמפתחות ה-Firebase
+      # לא חשופים בקוד עצמו, אלא מוזנים בצורה מאובטחת בזמן הבנייה בלבד.
+      # יש להגדיר את ה-Secrets האלה תחת: Settings -> Secrets and variables -> Actions
+      - name: יצירת קובץ .env.local מה-Secrets
+        run: |
+          echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env.local
+          echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> .env.local
+          echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> .env.local
+          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> .env.local
+          echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> .env.local
+          echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env.local
+
+      - name: בניית קבצי ה-Web
+        run: npm run build
+
+      - name: סנכרון Capacitor (העתקת dist לתוך פרויקט האנדרואיד)
+        run: npx cap sync android
+
+      - name: מתן הרשאת הרצה ל-gradlew
+        run: chmod +x android/gradlew
+
+      - name: בניית APK (גרסת debug - ניתנת להתקנה ישירה)
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: העלאת ה-APK כקובץ להורדה
+        uses: actions/upload-artifact@v4
+        with:
+          name: maslul-app-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
