@@ -18,7 +18,7 @@ const googleProvider = new GoogleAuthProvider();
  * זהו ה-familyId שישמש את כל הרשומות (ילדים, ציוני דרך) של המשתמש הזה,
  * ועליו נשענים כל Security Rules הבידוד בין משפחות.
  */
-async function ensureFamilyExists(user: User): Promise<string> {
+export async function ensureFamilyExists(user: User): Promise<string> {
   const userDocRef = doc(firestore, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
 
