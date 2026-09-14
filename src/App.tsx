@@ -5,7 +5,11 @@ import { HomeScreen } from '@/screens/Home/HomeScreen';
 import { TimelineScreen } from '@/screens/Timeline/TimelineScreen';
 import { AuthScreen } from '@/screens/Auth/AuthScreen';
 import { useAppStore } from '@/store/useAppStore';
-import { subscribeToAuthChanges, subscribeToUserFamilyId } from '@/services/auth/authService';
+import {
+  subscribeToAuthChanges,
+  subscribeToUserFamilyId,
+  ensureFamilyExists
+} from '@/services/auth/authService';
 
 const NAV_ITEMS = [
   { to: '/', label: 'בית', icon: Home, end: true },
@@ -20,14 +24,18 @@ export default function App() {
 
   useEffect(() => {
     // מאזין למצב ההתחברות. Firebase Auth שומר סשן מקומית באופן אוטומטי,
-    // כך שאחרי ההתחברות הראשונה הגישה תישמר גם ללא אינטרנט בפתיחות הבאות.
-    // שימו לב: כאן רק קובעים userId - את familyId טוענים במאזין נפרד למטה.
+    // ולכן גם משתמש שנכנס בעבר "יזוהה" כאן ישירות ב-onAuthStateChanged,
+    // בלי לעבור דרך signInWithEmail/signUpWithEmail. משום כך חייבים לוודא
+    // כאן, בכל פעם, שרשומת המשפחה שלו אכן קיימת - אחרת היא לעולם לא תיווצר.
     const unsubscribeAuth = subscribeToAuthChanges((user) => {
       if (!user) {
         setAuthInfo({ userId: null, familyId: null, isAuthLoading: false });
         return;
       }
       setAuthInfo({ userId: user.uid });
+      ensureFamilyExists(user).catch((err) => {
+        console.error('שגיאה ביצירת/בדיקת רשומת המשפחה:', err);
+      });
     });
     return unsubscribeAuth;
   }, [setAuthInfo]);
@@ -36,9 +44,7 @@ export default function App() {
     if (!userId) return;
 
     // מאזין חי (לא קריאה חד-פעמית) לרשומת המשפחה. זה פותר את מרוץ התזמון:
-    // ברגע ההרשמה, ensureFamilyExists עדיין כותב את רשומת המשפחה ברקע.
-    // עם מאזין חי, ברגע שהיא נכתבת בפועל - העדכון מגיע אוטומטית,
-    // גם אם ה-snapshot הראשון שהתקבל היה עדיין null.
+    // ברגע שהמשפחה נכתבת בפועל בפיירסטור - העדכון מגיע אוטומטית.
     const unsubscribeFamily = subscribeToUserFamilyId(userId, (familyId) => {
       setAuthInfo({ familyId, isAuthLoading: false });
     });
