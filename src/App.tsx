@@ -5,6 +5,7 @@ import { HomeScreen } from '@/screens/Home/HomeScreen';
 import { TimelineScreen } from '@/screens/Timeline/TimelineScreen';
 import { AuthScreen } from '@/screens/Auth/AuthScreen';
 import { useAppStore } from '@/store/useAppStore';
+import { syncEngine } from '@/services/sync/syncEngine';
 import {
   subscribeToAuthChanges,
   subscribeToUserFamilyId,
@@ -30,6 +31,7 @@ export default function App() {
     const unsubscribeAuth = subscribeToAuthChanges((user) => {
       if (!user) {
         setAuthInfo({ userId: null, familyId: null, isAuthLoading: false });
+        syncEngine.setFamilyId(null);
         return;
       }
       setAuthInfo({ userId: user.uid });
@@ -47,6 +49,9 @@ export default function App() {
     // ברגע שהמשפחה נכתבת בפועל בפיירסטור - העדכון מגיע אוטומטית.
     const unsubscribeFamily = subscribeToUserFamilyId(userId, (familyId) => {
       setAuthInfo({ familyId, isAuthLoading: false });
+      // ברגע שיש familyId (כולל בהתקנה חדשה של האפליקציה, או כניסה ממכשיר
+      // אחר) - מושכים את כל הנתונים הקיימים מהענן חזרה למכשיר הזה.
+      syncEngine.setFamilyId(familyId);
     });
     return unsubscribeFamily;
   }, [userId, setAuthInfo]);
