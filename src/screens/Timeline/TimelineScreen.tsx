@@ -59,7 +59,7 @@ export function TimelineScreen() {
               <TimelineStation
                 milestone={m}
                 side={idx % 2 === 0 ? 'right' : 'left'}
-                ageLabel={m.ageAtEvent[child.id]?.label}
+              ageLabel={m.ageAtEvent?.[child.id]?.label}
                 themeColor={child.themeColor}
                 onOpen={() => {
                   /* פתיחת כרטיס מלא - ייבנה במסך הבא */
