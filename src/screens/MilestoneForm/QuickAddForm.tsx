@@ -70,10 +70,10 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-ink/40 backdrop-blur-sm sm:items-center sm:justify-center">
-      <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-[2rem] bg-sand-50 p-6 sm:max-w-md sm:rounded-soft">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="animate-rise-in max-h-[90vh] w-full overflow-y-auto rounded-t-[2rem] bg-sand-50 p-6 shadow-warm-xl sm:max-w-md sm:rounded-card">
+        <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-xl text-ink">רגע חדש</h2>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-sand-200" aria-label="סגירה">
+          <button onClick={onClose} className="rounded-full p-2 text-ink-soft transition hover:bg-sand-200" aria-label="סגירה">
             <X size={20} />
           </button>
         </div>
@@ -84,7 +84,7 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder='למשל: "הצעד הראשון!"'
-          className="mb-4 w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 focus:border-honey"
+          className="mb-4 w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
         />
 
         <label className="mb-1 block text-sm font-medium text-ink-soft">תאריך</label>
@@ -93,10 +93,10 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
           value={date}
           max={new Date().toISOString().slice(0, 10)}
           onChange={(e) => setDate(e.target.value)}
-          className="mb-4 w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink focus:border-honey"
+          className="mb-4 w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
         />
 
-        <label className="mb-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-sand-300 bg-white px-4 py-6 text-ink-soft hover:border-honey">
+        <label className="mb-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-sand-300 bg-white px-4 py-6 text-ink-soft transition hover:border-honey hover:bg-honey/5">
           <Camera size={20} />
           <span>{selectedFile ? selectedFile.name : 'הוסיפו תמונה או סרטון'}</span>
           <input
@@ -109,20 +109,20 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
 
         <button
           onClick={() => setShowMore((v) => !v)}
-          className="mb-4 flex w-full items-center justify-center gap-1 text-sm text-honey-dark"
+          className="mb-4 flex w-full items-center justify-center gap-1 text-sm font-medium text-honey-dark"
         >
-          עוד פרטים (אופציונלי) <ChevronDown size={16} className={showMore ? 'rotate-180' : ''} />
+          עוד פרטים (אופציונלי) <ChevronDown size={16} className={`transition-transform ${showMore ? 'rotate-180' : ''}`} />
         </button>
 
         {showMore && (
-          <div className="mb-4 space-y-4">
+          <div className="animate-rise-in mb-4 space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-ink-soft">תיאור</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink focus:border-honey"
+                className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
               />
             </div>
             <div>
@@ -130,7 +130,7 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as MilestoneCategory)}
-                className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink focus:border-honey"
+                className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
               >
                 {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                   <option key={key} value={key}>
@@ -144,20 +144,20 @@ export function QuickAddForm({ childId, onClose }: { childId: string; onClose: (
               <input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink focus:border-honey"
+                className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
               />
             </div>
           </div>
         )}
 
         {error && (
-          <p className="mb-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
+          <p className="mb-3 rounded-xl bg-clay/10 px-4 py-2 text-sm text-clay">{error}</p>
         )}
 
         <button
           onClick={handleSave}
           disabled={!canSave}
-          className="w-full rounded-full bg-honey py-3.5 font-medium text-white transition hover:bg-honey-dark disabled:opacity-40"
+          className="w-full rounded-full bg-honey py-3.5 font-medium text-white shadow-warm transition hover:bg-honey-dark active:scale-[0.98] disabled:opacity-40"
         >
           {isSaving ? 'שומר...' : 'שמירה'}
         </button>
