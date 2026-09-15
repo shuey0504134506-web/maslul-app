@@ -24,13 +24,17 @@ const BASE_RETRY_DELAY_MS = 2_000;
 class SyncEngine {
   private isProcessing = false;
   private listenersAttached = false;
+  private familyId: string | null = null;
 
   /** נקרא פעם אחת בעליית האפליקציה */
   init() {
     if (this.listenersAttached) return;
     this.listenersAttached = true;
 
-    window.addEventListener('online', () => this.processQueue());
+    window.addEventListener('online', () => {
+      this.processQueue();
+      void this.pullFromCloud();
+    });
     window.addEventListener('offline', () => {
       // אין צורך לעשות דבר - התור פשוט ימתין. משאירים לתיעוד הכוונה.
     });
@@ -39,12 +43,40 @@ class SyncEngine {
     // לגמרי אופליין ולא נוסו מעולם, כולל אחרי סגירות והפעלות חוזרות.
     if (navigator.onLine) {
       this.processQueue();
+      void this.pullFromCloud();
     }
 
     // בדיקה תקופתית עדינה (fallback למקרה שאירוע 'online' לא נורה כראוי בדפדפן מסוים)
     setInterval(() => {
-      if (navigator.onLine) this.processQueue();
+      if (navigator.onLine) {
+        this.processQueue();
+        void this.pullFromCloud();
+      }
     }, 30_000);
+  }
+
+  /**
+   * נקרא מ-App.tsx בכל פעם שמזהה המשפחה של המשתמש המחובר ידוע/משתנה.
+   * זו הנקודה הקריטית להתקנה חדשה / מכשיר חדש: ברגע שיש familyId, מושכים
+   * מיד את כל הנתונים הקיימים מהענן חזרה ל-IndexedDB המקומי.
+   */
+  setFamilyId(familyId: string | null) {
+    const changed = this.familyId !== familyId;
+    this.familyId = familyId;
+    if (changed && familyId && navigator.onLine) {
+      void this.pullFromCloud();
+    }
+  }
+
+  private async pullFromCloud() {
+    if (!this.familyId || !navigator.onLine) return;
+    try {
+      await remoteData.pullAll(this.familyId);
+    } catch (err) {
+      // כשלון משיכה (למשל רשת לא יציבה) - לא מפילים את האפליקציה,
+      // הניסיון הבא (אירוע online הבא, או הבדיקה התקופתית) ינסה שוב.
+      console.error('שגיאה במשיכת נתונים מהענן:', err);
+    }
   }
 
   /** מוסיף פעולה לתור הסנכרון - נקרא מכל data service אחרי כתיבה מקומית */
@@ -100,8 +132,7 @@ class SyncEngine {
       await db.syncQueue.delete(item.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'שגיאת סנכרון לא ידועה';
-      // DEBUG זמני - נסיר את השורה הזו אחרי שנבין מה קורה
-      alert(`שגיאת סנכרון (${item.entityType}): ${message}`);
+      console.error(`שגיאת סנכרון (${item.entityType}):`, message);
       await db.syncQueue.update(item.id, {
         attemptCount: item.attemptCount + 1,
         lastAttemptAt: Date.now(),
