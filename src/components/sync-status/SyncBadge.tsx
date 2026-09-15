@@ -17,7 +17,7 @@ export function SyncBadge({ status, queueItemId }: { status: SyncStatus; queueIt
       type="button"
       disabled={!isClickable}
       onClick={() => queueItemId && syncEngine.retry(queueItemId)}
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${cfg.className} ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition ${cfg.className} ${
         isClickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
       }`}
       aria-label={cfg.label}
