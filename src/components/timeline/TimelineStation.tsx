@@ -19,10 +19,11 @@ interface Props {
   milestone: Milestone;
   side: 'right' | 'left';
   ageLabel?: string;
+  themeColor?: string;
   onOpen: () => void;
 }
 
-export function TimelineStation({ milestone, side, ageLabel, onOpen }: Props) {
+export function TimelineStation({ milestone, side, ageLabel, themeColor, onOpen }: Props) {
   const style = CATEGORY_STYLE[milestone.category];
   const coverImage = milestone.media.find((m) => m.type === 'image');
 
@@ -30,20 +31,24 @@ export function TimelineStation({ milestone, side, ageLabel, onOpen }: Props) {
     <div className={`relative flex w-full ${side === 'right' ? 'justify-start' : 'justify-end'}`}>
       {/* נקודת העוגן על הקו האנכי המרכזי */}
       <div
-        className="absolute top-6 h-4 w-4 rounded-full border-2 border-sand-50 shadow-sm"
-        style={{ background: style.color, [side === 'right' ? 'right' : 'left']: '-8px' } as React.CSSProperties}
+        className="absolute top-7 h-4 w-4 rounded-full border-[3px] border-sand-50 shadow-warm"
+        style={{
+          background: style.color,
+          [side === 'right' ? 'right' : 'left']: '-8px',
+          outline: themeColor ? `2px solid ${themeColor}33` : undefined
+        } as React.CSSProperties}
       />
 
       <button
         onClick={onOpen}
-        className={`w-[85%] rounded-soft bg-white p-4 text-right shadow-[0_2px_10px_rgba(43,38,33,0.06)] transition hover:shadow-[0_4px_16px_rgba(43,38,33,0.1)] ${
-          side === 'right' ? 'ml-auto mr-6' : 'mr-auto ml-6'
+        className={`w-[86%] rounded-card border border-sand-200/60 bg-white p-4 text-right shadow-warm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-lg ${
+          side === 'right' ? 'ml-auto mr-7' : 'mr-auto ml-7'
         }`}
       >
         <div className="mb-2 flex items-center justify-between">
           <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-base"
-            style={{ background: `${style.color}22` }}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-base"
+            style={{ background: `${style.color}1F` }}
           >
             {style.icon}
           </span>
@@ -54,7 +59,7 @@ export function TimelineStation({ milestone, side, ageLabel, onOpen }: Props) {
           <img
             src={coverImage.storageUrl}
             alt=""
-            className="mb-3 h-32 w-full rounded-xl object-cover"
+            className="mb-3 h-32 w-full rounded-2xl object-cover"
           />
         )}
 
