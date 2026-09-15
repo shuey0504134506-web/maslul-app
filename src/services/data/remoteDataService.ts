@@ -1,4 +1,5 @@
-import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import type { Table } from 'dexie';
 import { firestore } from '@/services/firebase/config';
 import { db } from '@/db/schema';
 import type { SyncQueueItem } from '@/types';
@@ -100,6 +101,54 @@ async function getLocalRecord(item: SyncQueueItem) {
   }
 }
 
+/**
+ * משיכת נתונים מהענן בחזרה למכשיר ("pull").
+ *
+ * זהו הכיוון המשלים ל-push: הוא רץ אחרי התחברות (או כשחוזר חיבור לרשת) וממלא
+ * מחדש את ה-IndexedDB המקומי מ-Firestore, לפי familyId. בלי זה, התקנה חדשה
+ * של האפליקציה או כניסה ממכשיר אחר לא הייתה מציגה נתונים שכבר קיימים בענן.
+ *
+ * כלל ההתנגשות: אם יש למכשיר הזה שינוי מקומי שעדיין לא סונכרן (syncStatus
+ * שונה מ-"synced") - הגרסה המקומית מנצחת ולא נדרסת, עד שהיא עצמה תסונכרן.
+ * אחרת, גרסת הענן מוחלת רק אם היא עדכנית יותר (updatedAt גבוה יותר),
+ * כדי לתמוך גם בעריכות שנעשו ממכשיר אחר של אותה משפחה.
+ */
+async function pullCollection<T extends { id: string; syncStatus: string; updatedAt: number }>(
+  collectionName: string,
+  table: Table<T, string>,
+  familyId: string
+): Promise<void> {
+  const q = query(collection(firestore, collectionName), where('familyId', '==', familyId));
+  const snapshot = await getDocs(q);
+
+  for (const docSnap of snapshot.docs) {
+    const remote = docSnap.data() as T;
+    const local = await table.get(remote.id);
+
+    if (!local) {
+      await table.add(remote);
+      continue;
+    }
+
+    if (local.syncStatus !== 'synced') {
+      // יש שינוי מקומי שממתין להעלאה - לא דורסים אותו.
+      continue;
+    }
+
+    if (remote.updatedAt > local.updatedAt) {
+      await table.put(remote);
+    }
+  }
+}
+
+async function pullAll(familyId: string): Promise<void> {
+  await pullCollection('children', db.children, familyId);
+  await pullCollection('milestones', db.milestones, familyId);
+  await pullCollection('funnyQuotes', db.funnyQuotes, familyId);
+  await pullCollection('suggestedMilestoneStatus', db.suggestedMilestoneStatuses, familyId);
+}
+
 export const remoteData = {
-  push
+  push,
+  pullAll
 };
