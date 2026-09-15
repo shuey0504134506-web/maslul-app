@@ -35,7 +35,33 @@ export default {
         body: ['"Heebo"', 'sans-serif']
       },
       borderRadius: {
-        soft: '1.25rem'
+        soft: '1.25rem',
+        card: '1.75rem'
+      },
+      boxShadow: {
+        // צל חתום לכל האפליקציה - עדין וחם, לא אפור-סטנדרטי
+        warm: '0 2px 14px rgba(122, 92, 44, 0.08)',
+        'warm-lg': '0 10px 34px rgba(122, 92, 44, 0.14)',
+        'warm-xl': '0 16px 44px rgba(122, 92, 44, 0.18)'
+      },
+      keyframes: {
+        'rise-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
+        },
+        'pop-in': {
+          '0%': { opacity: '0', transform: 'scale(0.92)' },
+          '100%': { opacity: '1', transform: 'scale(1)' }
+        },
+        'drift': {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-6px)' }
+        }
+      },
+      animation: {
+        'rise-in': 'rise-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both',
+        'pop-in': 'pop-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both',
+        drift: 'drift 6s ease-in-out infinite'
       }
     }
   },
