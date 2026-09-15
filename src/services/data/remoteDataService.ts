@@ -118,7 +118,7 @@ async function getLocalRecord(item: SyncQueueItem) {
  * console) - נמחקת גם מקומית. רשומות "pending"/"failed"/"uploading" לא נגענות,
  * כדי לא למחוק בטעות שינוי מקומי חדש שעדיין לא הספיק להעלות.
  */
-async function pullCollection
+async function pullCollection<
   T extends { id: string; familyId: string; syncStatus: string; updatedAt: number }
 >(collectionName: string, table: Table<T, string>, familyId: string): Promise<void> {
   const q = query(collection(firestore, collectionName), where('familyId', '==', familyId));
