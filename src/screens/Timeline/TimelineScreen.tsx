@@ -27,22 +27,22 @@ export function TimelineScreen() {
   }
 
   return (
-    <div className="pb-24 pt-6">
-      <header className="mb-6 px-6">
+    <div className="min-h-screen pb-32 pt-6">
+      <header className="animate-rise-in mb-8 px-6">
         <p className="text-sm text-ink-soft">המסלול של</p>
-        <h1 className="font-display text-2xl text-ink">{child.name}</h1>
+        <h1 className="font-display text-3xl text-ink">{child.name}</h1>
       </header>
 
-      <div className="relative">
+      <div className="relative px-2">
         {/* קו הדרך המרכזי */}
         <div
-          className="absolute right-1/2 top-0 h-full w-[2px] translate-x-1/2"
-          style={{ background: `linear-gradient(180deg, ${child.themeColor}55, ${child.themeColor}11)` }}
+          className="absolute right-1/2 top-1 h-full w-[3px] translate-x-1/2 rounded-full"
+          style={{ background: `linear-gradient(180deg, ${child.themeColor}66, ${child.themeColor}0D)` }}
         />
 
-        <div className="relative flex flex-col gap-8">
+        <div className="relative flex flex-col gap-7">
           {milestones?.length === 0 && (
-            <div className="mx-6 rounded-soft border border-dashed border-sand-300 p-8 text-center">
+            <div className="animate-rise-in mx-6 rounded-card border border-dashed border-sand-300 bg-white/60 p-8 text-center">
               <p className="font-display text-lg text-ink">המסלול עוד ריק</p>
               <p className="mt-1 text-sm text-ink-soft">
                 כל תחנה כאן היא רגע שתבחרו לשמר. אפשר להתחיל מהיום, או להוסיף זיכרון ישן.
@@ -51,15 +51,21 @@ export function TimelineScreen() {
           )}
 
           {milestones?.map((m, idx) => (
-            <TimelineStation
+            <div
               key={m.id}
-              milestone={m}
-              side={idx % 2 === 0 ? 'right' : 'left'}
-              ageLabel={m.ageAtEvent[child.id]?.label}
-              onOpen={() => {
-                /* פתיחת כרטיס מלא - ייבנה במסך הבא */
-              }}
-            />
+              className="animate-rise-in"
+              style={{ animationDelay: `${Math.min(idx, 8) * 60}ms` }}
+            >
+              <TimelineStation
+                milestone={m}
+                side={idx % 2 === 0 ? 'right' : 'left'}
+                ageLabel={m.ageAtEvent[child.id]?.label}
+                themeColor={child.themeColor}
+                onOpen={() => {
+                  /* פתיחת כרטיס מלא - ייבנה במסך הבא */
+                }}
+              />
+            </div>
           ))}
         </div>
       </div>
