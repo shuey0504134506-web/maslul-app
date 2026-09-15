@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, ChevronLeft } from 'lucide-react';
+import { Plus, ChevronLeft, Sparkles, Heart } from 'lucide-react';
 
 import { db } from '@/db/schema';
 import { useAppStore } from '@/store/useAppStore';
 import { calculateCurrentAge } from '@/utils/ageCalculator';
 import { QuickAddForm } from '@/screens/MilestoneForm/QuickAddForm';
 import { AddChildForm } from '@/screens/Home/AddChildForm';
+import { JourneyBackdrop } from '@/components/decor/JourneyBackdrop';
 
 export function HomeScreen() {
   const [isQuickAddOpen, setQuickAddOpen] = useState(false);
@@ -60,112 +62,139 @@ export function HomeScreen() {
   const age = calculateCurrentAge(child.birthDate);
 
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen pb-32">
 
-      <div
-        className="rounded-b-[2.5rem] px-6 pb-10 pt-8"
-        style={{
-          background: `linear-gradient(160deg, ${child.themeColor}26, #FCFAF6)`,
-        }}
-      >
+      {/* ===== הכותרת - "מסע החיים של" ===== */}
+      <div className="relative overflow-hidden rounded-b-[2.75rem] px-6 pb-12 pt-7 shadow-warm">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(170deg, ${child.themeColor}22, #FCFAF6 78%)`
+          }}
+        />
+        <JourneyBackdrop tint={child.themeColor} />
 
-        {children && children.length > 0 && (
-          <div className="mb-6 flex gap-2 overflow-x-auto">
+        <div className="relative">
+          <div className="mb-5 flex items-center justify-between">
+            <p className="font-display text-lg text-ink">
+              מסע החיים של {child.name.split(' ')[0]}
+            </p>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-honey-dark shadow-warm backdrop-blur">
+              <Sparkles size={16} />
+            </span>
+          </div>
 
-            {children.map((c) => (
+          {children && children.length > 1 && (
+            <div className="scrollbar-none mb-6 flex gap-2 overflow-x-auto">
+              {children.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedChildId(c.id)}
+                  className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
+                    c.id === child.id
+                      ? 'bg-ink text-sand-50 shadow-warm'
+                      : 'bg-white/70 text-ink-soft shadow-warm backdrop-blur hover:bg-white'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
+
               <button
-                key={c.id}
-                onClick={() => setSelectedChildId(c.id)}
-                className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm transition ${
-                  c.id === child.id
-                    ? 'bg-ink text-sand-50'
-                    : 'bg-white text-ink-soft shadow-sm'
-                }`}
+                onClick={() => setAddChildOpen(true)}
+                className="flex-shrink-0 rounded-full bg-white/70 px-3 py-1.5 text-sm text-ink-soft shadow-warm backdrop-blur transition hover:bg-white"
+                aria-label="הוספת ילד נוסף"
               >
-                {c.name}
+                <Plus size={16} />
               </button>
-            ))}
+            </div>
+          )}
 
-            <button
-              onClick={() => setAddChildOpen(true)}
-              className="flex-shrink-0 rounded-full bg-white px-3 py-1.5 text-sm text-ink-soft shadow-sm"
-              aria-label="הוספת ילד נוסף"
+          <div className="animate-rise-in flex flex-col items-center pt-2 text-center">
+            <div
+              className="mb-4 flex h-28 w-28 items-center justify-center rounded-full font-display text-4xl text-white ring-4 ring-white/80"
+              style={{
+                background: `linear-gradient(155deg, ${child.themeColor}, ${child.themeColor}CC)`,
+                boxShadow: `0 14px 34px ${child.themeColor}45`
+              }}
             >
-              <Plus size={16} />
-            </button>
+              {child.name.charAt(0)}
+            </div>
 
+            <h1 className="font-display text-[2rem] leading-tight text-ink">
+              {child.name}
+            </h1>
+
+            <span className="mt-2 rounded-full bg-white/80 px-4 py-1 text-sm text-ink-soft shadow-warm backdrop-blur">
+              {age.label}
+            </span>
+
+            {children && children.length === 1 && (
+              <button
+                onClick={() => setAddChildOpen(true)}
+                className="mt-4 text-xs font-medium text-honey-dark underline-offset-4 hover:underline"
+              >
+                + הוספת ילד נוסף למסלול
+              </button>
+            )}
           </div>
-        )}
-
-        <div className="flex flex-col items-center text-center">
-
-          <div
-            className="mb-4 flex h-24 w-24 items-center justify-center rounded-full text-3xl font-display text-white shadow-md"
-            style={{
-              background: child.themeColor,
-            }}
-          >
-            {child.name.charAt(0)}
-          </div>
-
-          <h1 className="font-display text-3xl text-ink">
-            {child.name}
-          </h1>
-
-          <p className="mt-1 text-ink-soft">
-            {age.label}
-          </p>
-
         </div>
       </div>
 
-      <div className="mt-6 px-6">
-
-        <p className="mb-2 text-sm font-medium text-ink-soft">
-          ציון הדרך האחרון
-        </p>
+      {/* ===== ציון הדרך האחרון ===== */}
+      <div className="animate-rise-in -mt-6 px-6" style={{ animationDelay: '80ms' }}>
+        <div className="mb-2 flex items-center gap-1.5 px-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-honey" />
+          <p className="text-sm font-medium text-ink-soft">ציון הדרך האחרון</p>
+        </div>
 
         {lastMilestone ? (
-          <div className="rounded-soft bg-white p-4 shadow-[0_2px_10px_rgba(43,38,33,0.06)]">
-
-            <h3 className="font-display text-lg text-ink">
-              {lastMilestone.title}
-            </h3>
-
-            <p className="mt-1 text-sm text-ink-soft">
-              {new Date(
-                lastMilestone.date
-              ).toLocaleDateString('he-IL')}
-            </p>
-
-          </div>
+          <Link
+            to="/timeline"
+            className="block w-full rounded-card border border-sand-200/70 bg-white p-4 text-right shadow-warm transition hover:shadow-warm-lg"
+          >
+            <div className="flex items-center gap-3">
+              {lastMilestone.isFavorite && (
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-clay/10 text-clay">
+                  <Heart size={16} fill="currentColor" />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate font-display text-lg text-ink">
+                  {lastMilestone.title}
+                </h3>
+                <p className="mt-0.5 text-sm text-ink-soft">
+                  {new Date(lastMilestone.date).toLocaleDateString('he-IL')}
+                </p>
+              </div>
+              <ChevronLeft size={18} className="flex-shrink-0 text-ink-soft" />
+            </div>
+          </Link>
         ) : (
-          <div className="rounded-soft border border-dashed border-sand-300 p-4 text-center text-sm text-ink-soft">
-            עוד לא נוסף ציון דרך ראשון
+          <div className="rounded-card border border-dashed border-sand-300 bg-white/60 p-5 text-center text-sm text-ink-soft">
+            עוד לא נוסף ציון דרך ראשון - כל רגע קטן שווה תיעוד 🌱
           </div>
         )}
-
       </div>
 
-      <a
-        href="#/timeline"
-        className="mt-4 flex items-center justify-between px-6 py-3 text-sm text-honey-dark"
+      {/* ===== מעבר למסלול המלא ===== */}
+      <Link
+        to="/timeline"
+        className="animate-rise-in mx-6 mt-4 flex items-center justify-between rounded-card bg-sage/10 px-5 py-4 text-sage-dark transition hover:bg-sage/15"
+        style={{ animationDelay: '140ms' }}
       >
-        <span className="flex items-center gap-1">
-          לצפייה במסלול המלא
-          <ChevronLeft size={16} />
-        </span>
-      </a>
+        <span className="text-sm font-medium">לצפייה במסלול המלא</span>
+        <ChevronLeft size={18} />
+      </Link>
 
+      {/* ===== כפתור הוספת רגע ===== */}
       <button
         onClick={() => setQuickAddOpen(true)}
-        className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-honey px-6 py-3.5 text-white shadow-[0_6px_20px_rgba(201,154,75,0.4)] transition hover:bg-honey-dark"
+        className="animate-pop-in fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-honey px-6 py-3.5 text-white shadow-warm-xl transition hover:bg-honey-dark active:scale-95"
+        style={{ animationDelay: '220ms' }}
       >
         <Plus size={20} />
-
-        <span className="font-medium">
-          הוסף רגע
-        </span>
+        <span className="font-medium">הוסף רגע</span>
       </button>
 
       {isQuickAddOpen && (
@@ -191,29 +220,31 @@ function EmptyStateNoChildren({
   onAddChild: () => void;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-8 text-center">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-8 text-center">
+      <JourneyBackdrop tint="#C99A4B" />
 
-      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-honey/15 text-3xl">
-        👶
+      <div className="animate-rise-in relative">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-honey/15 text-3xl shadow-warm">
+          👶
+        </div>
+
+        <h1 className="font-display text-2xl text-ink">
+          ברוכים הבאים למסלול
+        </h1>
+
+        <p className="mt-2 max-w-xs text-ink-soft">
+          כדי להתחיל, הוסיפו פרופיל ילד ראשון.
+          אפשר גם אם הוא כבר בן כמה שנים,
+          ולהשלים זיכרונות ישנים בדיעבד.
+        </p>
+
+        <button
+          onClick={onAddChild}
+          className="mt-6 rounded-full bg-honey px-6 py-3 font-medium text-white shadow-warm-lg transition hover:bg-honey-dark active:scale-95"
+        >
+          הוספת ילד ראשון
+        </button>
       </div>
-
-      <h1 className="font-display text-2xl text-ink">
-        ברוכים הבאים למסלול
-      </h1>
-
-      <p className="mt-2 max-w-xs text-ink-soft">
-        כדי להתחיל, הוסיפו פרופיל ילד ראשון.
-        אפשר גם אם הוא כבר בן כמה שנים,
-        ולהשלים זיכרונות ישנים בדיעבד.
-      </p>
-
-      <button
-        onClick={onAddChild}
-        className="mt-6 rounded-full bg-ink px-6 py-3 font-medium text-sand-50"
-      >
-        הוספת ילד ראשון
-      </button>
-
     </div>
   );
 }
