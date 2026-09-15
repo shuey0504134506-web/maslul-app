@@ -112,17 +112,23 @@ async function getLocalRecord(item: SyncQueueItem) {
  * שונה מ-"synced") - הגרסה המקומית מנצחת ולא נדרסת, עד שהיא עצמה תסונכרן.
  * אחרת, גרסת הענן מוחלת רק אם היא עדכנית יותר (updatedAt גבוה יותר),
  * כדי לתמוך גם בעריכות שנעשו ממכשיר אחר של אותה משפחה.
+ *
+ * מחיקות: כל רשומה מקומית שכבר "synced" ולא מופיעה יותר בין המסמכים שחזרו
+ * מהשאילתה (כלומר נמחקה בענן, בין אם דרך האפליקציה ובין אם ישירות ב-Firebase
+ * console) - נמחקת גם מקומית. רשומות "pending"/"failed"/"uploading" לא נגענות,
+ * כדי לא למחוק בטעות שינוי מקומי חדש שעדיין לא הספיק להעלות.
  */
-async function pullCollection<T extends { id: string; syncStatus: string; updatedAt: number }>(
-  collectionName: string,
-  table: Table<T, string>,
-  familyId: string
-): Promise<void> {
+async function pullCollection
+  T extends { id: string; familyId: string; syncStatus: string; updatedAt: number }
+>(collectionName: string, table: Table<T, string>, familyId: string): Promise<void> {
   const q = query(collection(firestore, collectionName), where('familyId', '==', familyId));
   const snapshot = await getDocs(q);
 
+  const remoteIds = new Set<string>();
+
   for (const docSnap of snapshot.docs) {
     const remote = docSnap.data() as T;
+    remoteIds.add(remote.id);
     const local = await table.get(remote.id);
 
     if (!local) {
@@ -137,6 +143,14 @@ async function pullCollection<T extends { id: string; syncStatus: string; update
 
     if (remote.updatedAt > local.updatedAt) {
       await table.put(remote);
+    }
+  }
+
+  // מחיקת רשומות מקומיות שסונכרנו בעבר אבל כבר לא קיימות בענן (נמחקו)
+  const localRecords = await table.where('familyId').equals(familyId).toArray();
+  for (const localRecord of localRecords) {
+    if (localRecord.syncStatus === 'synced' && !remoteIds.has(localRecord.id)) {
+      await table.delete(localRecord.id);
     }
   }
 }
