@@ -24,3 +24,25 @@ body {
   outline: 2px solid #C99A4B;
   outline-offset: 2px;
 }
+
+/* עיצוב עדין לפס הגלילה, כדי שגם הוא ירגיש חלק מהמראה החם */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #E8DAC2;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* הסתרת פס גלילה אופקי בשורות פילים (בורר ילדים וכו') תוך שמירה על גלילה */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
