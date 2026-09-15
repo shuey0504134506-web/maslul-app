@@ -55,24 +55,30 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-sand-50 px-6">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-sand-50 px-6">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-64"
+        style={{ background: 'linear-gradient(180deg, #C99A4B22, #FCFAF6 90%)' }}
+        aria-hidden="true"
+      />
+
+      <div className="animate-rise-in relative w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-honey/15 text-2xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-honey/15 text-2xl shadow-warm">
             🌿
           </div>
           <h1 className="font-display text-3xl text-ink">מסלול</h1>
           <p className="mt-1 text-ink-soft">המסע המשפחתי שלכם, מתועד ושמור</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-card border border-sand-200/70 bg-white p-6 shadow-warm">
           {mode === 'signup' && (
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="השם שלכם"
               required
-              className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 focus:border-honey"
+              className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
             />
           )}
           <input
@@ -81,7 +87,7 @@ export function AuthScreen() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="אימייל"
             required
-            className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 focus:border-honey"
+            className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
           />
           <input
             type="password"
@@ -90,21 +96,21 @@ export function AuthScreen() {
             placeholder="סיסמה"
             required
             minLength={6}
-            className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 focus:border-honey"
+            className="w-full rounded-xl border border-sand-300 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/60 transition focus:border-honey focus:outline-none focus:ring-2 focus:ring-honey/20"
           />
 
-          {error && <p className="text-sm text-clay">{error}</p>}
+          {error && <p className="rounded-xl bg-clay/10 px-4 py-2 text-sm text-clay">{error}</p>}
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-full bg-honey py-3.5 font-medium text-white transition hover:bg-honey-dark disabled:opacity-40"
+            className="w-full rounded-full bg-honey py-3.5 font-medium text-white shadow-warm transition hover:bg-honey-dark active:scale-[0.98] disabled:opacity-40"
           >
             {isSubmitting ? 'רגע...' : mode === 'signup' ? 'יצירת חשבון' : 'התחברות'}
           </button>
         </form>
 
-        <div className="my-4 flex items-center gap-3 text-xs text-ink-soft">
+        <div className="my-5 flex items-center gap-3 text-xs text-ink-soft">
           <div className="h-px flex-1 bg-sand-300" />
           או
           <div className="h-px flex-1 bg-sand-300" />
@@ -113,14 +119,14 @@ export function AuthScreen() {
         <button
           onClick={handleGoogle}
           disabled={isSubmitting}
-          className="w-full rounded-full border border-sand-300 bg-white py-3.5 font-medium text-ink transition hover:bg-sand-100 disabled:opacity-40"
+          className="w-full rounded-full border border-sand-300 bg-white py-3.5 font-medium text-ink shadow-warm transition hover:bg-sand-100 active:scale-[0.98] disabled:opacity-40"
         >
           המשך עם Google
         </button>
 
         <button
           onClick={() => setMode((m) => (m === 'signin' ? 'signup' : 'signin'))}
-          className="mt-6 w-full text-center text-sm text-honey-dark"
+          className="mt-6 w-full text-center text-sm font-medium text-honey-dark hover:underline"
         >
           {mode === 'signin' ? 'משתמשים חדשים - יצירת חשבון' : 'כבר יש לכם חשבון? התחברות'}
         </button>
