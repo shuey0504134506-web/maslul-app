@@ -53,8 +53,9 @@ export default function App() {
 
   if (isAuthLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-sand-50">
-        <p className="text-ink-soft">טוען...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sand-50">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-honey/30 border-t-honey" />
+        <p className="text-sm text-ink-soft">טוען...</p>
       </div>
     );
   }
@@ -64,7 +65,7 @@ export default function App() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-sand-50">
+    <div className="mx-auto min-h-screen max-w-lg bg-sand-50 md:max-w-2xl">
       <main>
         <Routes>
           <Route path="/" element={<HomeScreen />} />
@@ -73,16 +74,18 @@ export default function App() {
         </Routes>
       </main>
 
-      <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-lg -translate-x-1/2 border-t border-sand-200 bg-white/95 px-4 pb-safe backdrop-blur">
-        <div className="flex items-center justify-around py-2">
+      <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-lg -translate-x-1/2 px-3 pb-safe pb-3 md:max-w-2xl">
+        <div className="flex items-center justify-around gap-1 rounded-[2rem] border border-sand-200/70 bg-white/95 px-2 py-2 shadow-warm-lg backdrop-blur">
           {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-xs transition ${
-                  isActive ? 'text-honey-dark' : 'text-ink-soft'
+                `flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-honey/12 text-honey-dark'
+                    : 'text-ink-soft hover:bg-sand-100 hover:text-ink'
                 }`
               }
             >
