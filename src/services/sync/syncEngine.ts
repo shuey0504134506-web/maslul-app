@@ -100,6 +100,8 @@ class SyncEngine {
       await db.syncQueue.delete(item.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'שגיאת סנכרון לא ידועה';
+      // DEBUG זמני - נסיר את השורה הזו אחרי שנבין מה קורה
+      alert(`שגיאת סנכרון (${item.entityType}): ${message}`);
       await db.syncQueue.update(item.id, {
         attemptCount: item.attemptCount + 1,
         lastAttemptAt: Date.now(),
