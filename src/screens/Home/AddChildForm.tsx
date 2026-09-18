@@ -1,38 +1,72 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
-import { createChild } from '@/services/data/localDataService';
+import { X, Trash2 } from 'lucide-react';
+import { createChild, updateChild, deleteChild } from '@/services/data/localDataService';
 import { useAppStore } from '@/store/useAppStore';
-import type { Gender } from '@/types';
+import type { Child, Gender } from '@/types';
 
 const THEME_COLORS = ['#C99A4B', '#8A9B76', '#B97A5E', '#6E8AA6', '#A98BC4'];
 
-export function AddChildForm({ onClose }: { onClose: () => void }) {
-  const [name, setName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [gender, setGender] = useState<Gender>(undefined);
-  const [themeColor, setThemeColor] = useState(THEME_COLORS[0]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const setSelectedChildId = useAppStore((s) => s.setSelectedChildId);
+interface Props {
+  child?: Child;
+  onClose: () => void;
+}
 
-  const canSave = name.trim().length > 0 && birthDate.length > 0 && !isSaving;
+export function AddChildForm({ child, onClose }: Props) {
+  const isEditing = !!child;
+
+  const [name, setName] = useState(child?.name ?? '');
+  const [birthDate, setBirthDate] = useState(child?.birthDate ?? '');
+  const [gender, setGender] = useState<Gender>(child?.gender ?? undefined);
+  const [themeColor, setThemeColor] = useState(child?.themeColor ?? THEME_COLORS[0]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { selectedChildId, setSelectedChildId } = useAppStore();
+
+  const canSave = name.trim().length > 0 && birthDate.length > 0 && !isSaving && !isDeleting;
 
   async function handleSave() {
     if (!canSave) return;
     setIsSaving(true);
     setError(null);
     try {
-      const child = await createChild({ name: name.trim(), birthDate, gender, themeColor });
-      setSelectedChildId(child.id);
+      if (isEditing) {
+        await updateChild(child.id, { name: name.trim(), birthDate, gender, themeColor });
+      } else {
+        const created = await createChild({ name: name.trim(), birthDate, gender, themeColor });
+        setSelectedChildId(created.id);
+      }
       onClose();
     } catch (err) {
       // בעבר שגיאה כאן (למשל כשרשומת המשפחה עדיין לא נטענה) נבלעה בשקט.
       // עכשיו, בזכות תיקון ה-race condition ב-App.tsx, המצב הזה כמעט לא אמור
       // לקרות - אבל אם בכל זאת קורית שגיאה אחרת, המשתמש חייב לראות אותה.
-      console.error('שגיאה בשמירת ילד חדש:', err);
+      console.error('שגיאה בשמירת ילד:', err);
       setError('לא הצלחנו לשמור כרגע. נסו שוב בעוד רגע.');
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!child) return;
+    const confirmed = window.confirm(
+      `למחוק את ${child.name} מהמסלול? כל ציוני הדרך שמשויכים רק ל${child.name} יימחקו גם הם. הפעולה לא ניתנת לביטול.`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await deleteChild(child.id);
+      if (selectedChildId === child.id) {
+        setSelectedChildId(null);
+      }
+      onClose();
+    } catch (err) {
+      console.error('שגיאה במחיקת ילד:', err);
+      setError('לא הצלחנו למחוק כרגע. נסו שוב בעוד רגע.');
+      setIsDeleting(false);
     }
   }
 
@@ -40,10 +74,23 @@ export function AddChildForm({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-end bg-ink/40 backdrop-blur-sm sm:items-center sm:justify-center">
       <div className="animate-rise-in max-h-[90vh] w-full overflow-y-auto rounded-t-[2rem] bg-sand-50 p-6 shadow-warm-xl sm:max-w-md sm:rounded-card">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-xl text-ink">ילד חדש במסלול</h2>
-          <button onClick={onClose} className="rounded-full p-2 text-ink-soft transition hover:bg-sand-200" aria-label="סגירה">
-            <X size={20} />
-          </button>
+          <h2 className="font-display text-xl text-ink">{isEditing ? 'עריכת פרופיל ילד' : 'ילד חדש במסלול'}</h2>
+          <div className="flex items-center gap-1">
+            {isEditing && (
+              <button
+                onClick={handleDelete}
+                disabled={isSaving || isDeleting}
+                className="rounded-full p-2 text-clay transition hover:bg-clay/10 disabled:opacity-40"
+                aria-label="מחיקת ילד"
+                title="מחיקת ילד"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
+            <button onClick={onClose} className="rounded-full p-2 text-ink-soft transition hover:bg-sand-200" aria-label="סגירה">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         <label className="mb-1 block text-sm font-medium text-ink-soft">שם</label>
@@ -106,7 +153,7 @@ export function AddChildForm({ onClose }: { onClose: () => void }) {
           disabled={!canSave}
           className="w-full rounded-full bg-honey py-3.5 font-medium text-white shadow-warm transition hover:bg-honey-dark active:scale-[0.98] disabled:opacity-40"
         >
-          {isSaving ? 'שומר...' : 'התחלת המסלול'}
+          {isSaving ? 'שומר...' : isEditing ? 'עדכון' : 'התחלת המסלול'}
         </button>
       </div>
     </div>
