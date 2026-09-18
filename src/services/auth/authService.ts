@@ -22,8 +22,17 @@ export async function ensureFamilyExists(user: User): Promise<string> {
   const userDocRef = doc(firestore, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
 
-  if (userDoc.exists() && userDoc.data().familyId) {
-    return userDoc.data().familyId as string;
+  const existingFamilyId = userDoc.exists() ? (userDoc.data().familyId as string | undefined) : undefined;
+
+  if (existingFamilyId) {
+    // חשוב: לא מספיק שהשדה familyId קיים ברשומת המשתמש - חייבים לוודא
+    // שרשומת המשפחה עצמה עדיין קיימת בפועל (למשל, נמחקה ידנית מהקונסולה).
+    // אחרת נמשיך "לסמוך" על family/members-doc שלא קיים, וכל כתיבה עתידית
+    // תיכשל בשקט ב-Security Rules בלי שאף אחד יבין למה.
+    const familyDoc = await getDoc(doc(firestore, 'families', existingFamilyId));
+    if (familyDoc.exists()) {
+      return existingFamilyId;
+    }
   }
 
   const familyId = uuid();
