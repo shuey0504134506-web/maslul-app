@@ -27,10 +27,21 @@ export async function ensureFamilyExists(user: User): Promise<string> {
   if (existingFamilyId) {
     // חשוב: לא מספיק שהשדה familyId קיים ברשומת המשתמש - חייבים לוודא
     // שרשומת המשפחה עצמה עדיין קיימת בפועל (למשל, נמחקה ידנית מהקונסולה).
-    // אחרת נמשיך "לסמוך" על family/members-doc שלא קיים, וכל כתיבה עתידית
-    // תיכשל בשקט ב-Security Rules בלי שאף אחד יבין למה.
-    const familyDoc = await getDoc(doc(firestore, 'families', existingFamilyId));
-    if (familyDoc.exists()) {
+    //
+    // שים לב: getDoc על מסמך שאין לנו הרשאת קריאה אליו זורק permission-denied
+    // (Firestore לא מבדיל בין "אין הרשאה" ל"לא קיים"). זה בדיוק המצב אחרי
+    // שהמשפחה נמחקה - רשומת ה-members שלנו נמחקה איתה, ולכן אין לנו יותר
+    // הרשאת קריאה למשפחה. לכן אנחנו תופסים את השגיאה ומתייחסים אליה
+    // כאילו המשפחה לא קיימת, ולא נותנים לה לעצור את כל התהליך.
+    let familyStillExists = false;
+    try {
+      const familyDoc = await getDoc(doc(firestore, 'families', existingFamilyId));
+      familyStillExists = familyDoc.exists();
+    } catch {
+      familyStillExists = false;
+    }
+
+    if (familyStillExists) {
       return existingFamilyId;
     }
   }
