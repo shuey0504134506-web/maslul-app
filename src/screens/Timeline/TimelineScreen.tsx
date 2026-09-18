@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/schema';
 import { useAppStore } from '@/store/useAppStore';
 import { TimelineStation } from '@/components/timeline/TimelineStation';
+import { QuickAddForm } from '@/screens/MilestoneForm/QuickAddForm';
+import type { Milestone } from '@/types';
 
 export function TimelineScreen() {
   const selectedChildId = useAppStore((s) => s.selectedChildId);
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
 
   const child = useLiveQuery(
     () => (selectedChildId ? db.children.get(selectedChildId) : undefined),
@@ -59,16 +63,22 @@ export function TimelineScreen() {
               <TimelineStation
                 milestone={m}
                 side={idx % 2 === 0 ? 'right' : 'left'}
-              ageLabel={m.ageAtEvent?.[child.id]?.label}
+                ageLabel={m.ageAtEvent?.[child.id]?.label}
                 themeColor={child.themeColor}
-                onOpen={() => {
-                  /* פתיחת כרטיס מלא - ייבנה במסך הבא */
-                }}
+                onOpen={() => setEditingMilestone(m)}
               />
             </div>
           ))}
         </div>
       </div>
+
+      {editingMilestone && (
+        <QuickAddForm
+          childId={child.id}
+          milestone={editingMilestone}
+          onClose={() => setEditingMilestone(null)}
+        />
+      )}
     </div>
   );
 }
