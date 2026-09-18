@@ -3,6 +3,9 @@ import { Routes, Route, NavLink } from 'react-router-dom';
 import { Home, Milestone as MilestoneIcon, Image, Search, Settings } from 'lucide-react';
 import { HomeScreen } from '@/screens/Home/HomeScreen';
 import { TimelineScreen } from '@/screens/Timeline/TimelineScreen';
+import { GalleryScreen } from '@/screens/Gallery/GalleryScreen';
+import { SearchScreen } from '@/screens/Search/SearchScreen';
+import { SettingsScreen } from '@/screens/Settings/SettingsScreen';
 import { AuthScreen } from '@/screens/Auth/AuthScreen';
 import { useAppStore } from '@/store/useAppStore';
 import { syncEngine } from '@/services/sync/syncEngine';
@@ -77,7 +80,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/timeline" element={<TimelineScreen />} />
-          {/* שאר המסכים (גלריה, חיפוש, הגדרות וכו') ייבנו בהמשך לפי סדר העבודה במסמך הארכיטקטורה */}
+          <Route path="/gallery" element={<GalleryScreen />} />
+          <Route path="/search" element={<SearchScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
         </Routes>
       </main>
 
