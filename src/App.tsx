@@ -37,6 +37,8 @@ export default function App() {
       setAuthInfo({ userId: user.uid });
       ensureFamilyExists(user).catch((err) => {
         console.error('שגיאה ביצירת/בדיקת רשומת המשפחה:', err);
+        // זמני - רק כדי לראות את השגיאה בפועל על המסך, נסיר אחרי שנפתור.
+        alert('שגיאת סנכרון משפחה:\n' + (err?.code ?? '') + '\n' + (err?.message ?? String(err)));
       });
     });
     return unsubscribeAuth;
