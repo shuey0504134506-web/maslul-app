@@ -3,6 +3,7 @@ import { X, Camera, ChevronDown, Trash2 } from 'lucide-react';
 import { createMilestone, updateMilestone, deleteMilestone } from '@/services/data/localDataService';
 import { saveMediaLocally } from '@/services/media/mediaService';
 import { db } from '@/db/schema';
+import { CATEGORY_LABELS } from '@/components/timeline/categories';
 import type { Milestone, MilestoneCategory } from '@/types';
 
 /**
@@ -12,30 +13,18 @@ import type { Milestone, MilestoneCategory } from '@/types';
  * ברירת המחדל (ללא milestone): מצב יצירה, בדיוק כמו קודם.
  */
 
-const CATEGORY_LABELS: Record<MilestoneCategory, string> = {
-  motor: 'התפתחות מוטורית',
-  language: 'שפה',
-  social: 'חברה ורגש',
-  education: 'לימודים',
-  health: 'בריאות וגדילה',
-  family: 'משפחה',
-  holidays: 'חגים',
-  trips: 'טיולים',
-  achievements: 'הישגים',
-  funny: 'דברים מצחיקים',
-  special: 'ציון דרך מיוחד'
-};
-
 interface Props {
   childId: string;
   milestone?: Milestone;
+  /** כותרת מוצעת מראש (למשל מכרטיס "הצעד הבא") - רק במצב יצירה */
+  initialTitle?: string;
   onClose: () => void;
 }
 
-export function QuickAddForm({ childId, milestone, onClose }: Props) {
+export function QuickAddForm({ childId, milestone, initialTitle, onClose }: Props) {
   const isEditing = !!milestone;
 
-  const [title, setTitle] = useState(milestone?.title ?? '');
+  const [title, setTitle] = useState(milestone?.title ?? initialTitle ?? '');
   const [date, setDate] = useState(milestone?.date ?? new Date().toISOString().slice(0, 10));
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showMore, setShowMore] = useState(isEditing);

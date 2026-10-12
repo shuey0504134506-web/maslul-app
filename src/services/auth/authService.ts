@@ -13,10 +13,21 @@ import { auth, firestore } from '@/services/firebase/config';
 
 const googleProvider = new GoogleAuthProvider();
 
+function isPermissionDenied(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'permission-denied';
+}
+
 /**
  * בהרשמה ראשונה יוצרים גם רשומת "משפחה" חדשה עם המשתמש כ-owner.
  * זהו ה-familyId שישמש את כל הרשומות (ילדים, ציוני דרך) של המשתמש הזה,
  * ועליו נשענים כל Security Rules הבידוד בין משפחות.
+ *
+ * חשוב - מה שונה מהגרסה הקודמת: אם כבר קיים familyId ברשומת המשתמש, *לעולם*
+ * לא יוצרים משפחה חדשה ולא דורסים אותו. בעבר כל כשל בקריאה (רשת, הרשאות) גרם
+ * ליצירת משפחה חדשה ולדריסת ה-familyId, וכל הנתונים שכבר הועלו נשארו תלויים
+ * תחת מזהה ישן שאף אחד לא מצביע אליו - ולכן אחרי התקנה מחדש "לא חזר שום דבר".
+ * עכשיו: אם רשומת החברות חסרה, מתקנים אותה *תחת אותו familyId*, והנתונים חוזרים.
+ * שגיאות רשת פשוט נזרקות הלאה (ללא שינוי בענן) והניסיון הבא יתקן.
  */
 export async function ensureFamilyExists(user: User): Promise<string> {
   const userDocRef = doc(firestore, 'users', user.uid);
@@ -25,25 +36,8 @@ export async function ensureFamilyExists(user: User): Promise<string> {
   const existingFamilyId = userDoc.exists() ? (userDoc.data().familyId as string | undefined) : undefined;
 
   if (existingFamilyId) {
-    // חשוב: לא מספיק שהשדה familyId קיים ברשומת המשתמש - חייבים לוודא
-    // שרשומת המשפחה עצמה עדיין קיימת בפועל (למשל, נמחקה ידנית מהקונסולה).
-    //
-    // שים לב: getDoc על מסמך שאין לנו הרשאת קריאה אליו זורק permission-denied
-    // (Firestore לא מבדיל בין "אין הרשאה" ל"לא קיים"). זה בדיוק המצב אחרי
-    // שהמשפחה נמחקה - רשומת ה-members שלנו נמחקה איתה, ולכן אין לנו יותר
-    // הרשאת קריאה למשפחה. לכן אנחנו תופסים את השגיאה ומתייחסים אליה
-    // כאילו המשפחה לא קיימת, ולא נותנים לה לעצור את כל התהליך.
-    let familyStillExists = false;
-    try {
-      const familyDoc = await getDoc(doc(firestore, 'families', existingFamilyId));
-      familyStillExists = familyDoc.exists();
-    } catch {
-      familyStillExists = false;
-    }
-
-    if (familyStillExists) {
-      return existingFamilyId;
-    }
+    await repairMembershipIfMissing(user.uid, existingFamilyId);
+    return existingFamilyId;
   }
 
   const familyId = uuid();
@@ -68,6 +62,36 @@ export async function ensureFamilyExists(user: User): Promise<string> {
   );
 
   return familyId;
+}
+
+/**
+ * מוודא שהמשתמש עדיין רשום כחבר במשפחה שלו, ומתקן אם לא - תחת אותו familyId.
+ *
+ * קריאה של מסמך חברות שלא קיים נחסמת ע"י הכללים (הכלל תלוי בקיום המסמך עצמו),
+ * ולכן permission-denied כאן פירושו "החברות חסרה". כל שגיאה אחרת (למשל רשת)
+ * נזרקת הלאה בלי לשנות דבר.
+ */
+async function repairMembershipIfMissing(uid: string, familyId: string): Promise<void> {
+  const memberRef = doc(firestore, 'families', familyId, 'members', uid);
+
+  try {
+    const member = await getDoc(memberRef);
+    if (member.exists()) return;
+  } catch (err) {
+    if (!isPermissionDenied(err)) throw err;
+  }
+
+  // מסמך המשפחה עצמו אולי נמחק. אם הוא קיים, העדכון ייחסם (אין לנו עדיין הרשאה) - וזה בסדר.
+  try {
+    await setDoc(doc(firestore, 'families', familyId), {
+      ownerId: uid,
+      createdAt: serverTimestamp()
+    });
+  } catch (err) {
+    if (!isPermissionDenied(err)) throw err;
+  }
+
+  await setDoc(memberRef, { role: 'owner', joinedAt: serverTimestamp() });
 }
 
 export async function signUpWithEmail(email: string, password: string, displayName: string) {
@@ -113,16 +137,18 @@ export async function getFamilyIdForUser(userId: string): Promise<string | null>
  */
 export function subscribeToUserFamilyId(
   userId: string,
-  callback: (familyId: string | null) => void
+  callback: (familyId: string | null) => void,
+  onError?: (err: unknown) => void
 ) {
   return onSnapshot(
     doc(firestore, 'users', userId),
     (snapshot) => {
       callback(snapshot.exists() ? ((snapshot.data().familyId as string) ?? null) : null);
     },
-    () => {
-      // כשלון קריאה (למשל בהיעדר רשת) - לא מפילים את האפליקציה,
-      // פשוט משאירים את המצב הקודם עד שהחיבור יחזור.
+    (err) => {
+      // כשלון קריאה (למשל הרשאות) - לא מפילים את האפליקציה, אבל כן מדווחים
+      // למי שהאזין, כדי שמסך הטעינה לא יישאר תקוע לנצח.
+      onError?.(err);
     }
   );
 }

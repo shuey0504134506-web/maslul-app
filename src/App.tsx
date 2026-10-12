@@ -1,30 +1,98 @@
-import { useEffect } from 'react';
-import { Routes, Route, NavLink } from 'react-router-dom';
-import { Home, Milestone as MilestoneIcon, Image, Search, Settings } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { HomeScreen } from '@/screens/Home/HomeScreen';
 import { TimelineScreen } from '@/screens/Timeline/TimelineScreen';
 import { GalleryScreen } from '@/screens/Gallery/GalleryScreen';
 import { SearchScreen } from '@/screens/Search/SearchScreen';
 import { SettingsScreen } from '@/screens/Settings/SettingsScreen';
 import { AuthScreen } from '@/screens/Auth/AuthScreen';
+import { QuickAddForm } from '@/screens/MilestoneForm/QuickAddForm';
+import { BottomNav } from '@/components/layout/BottomNav';
+import { AddMomentButton } from '@/components/layout/AddMomentButton';
+import { ErrorBanner } from '@/components/common/ErrorBanner';
+import { useSelectedChild } from '@/hooks/useFamilyData';
 import { useAppStore } from '@/store/useAppStore';
 import { syncEngine } from '@/services/sync/syncEngine';
+import { auth } from '@/services/firebase/config';
+import { describeError } from '@/utils/firebaseErrors';
 import {
   subscribeToAuthChanges,
   subscribeToUserFamilyId,
   ensureFamilyExists
 } from '@/services/auth/authService';
 
-const NAV_ITEMS = [
-  { to: '/', label: 'בית', icon: Home, end: true },
-  { to: '/timeline', label: 'מסלול', icon: MilestoneIcon },
-  { to: '/gallery', label: 'גלריה', icon: Image },
-  { to: '/search', label: 'חיפוש', icon: Search },
-  { to: '/settings', label: 'הגדרות', icon: Settings }
-];
+const familyCacheKey = (uid: string) => `maslul:family:${uid}`;
+
+function readCachedFamily(uid: string): string | null {
+  try {
+    return localStorage.getItem(familyCacheKey(uid));
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedFamily(uid: string, familyId: string | null) {
+  try {
+    if (familyId) localStorage.setItem(familyCacheKey(uid), familyId);
+  } catch {
+    /* אחסון לא זמין - לא קריטי */
+  }
+}
+
+interface FamilyError {
+  title: string;
+  message: string;
+}
+
+/** המעטפת של האפליקציה אחרי התחברות: מסכים, ניווט תחתון וכפתור "הוסף רגע" */
+export function AuthenticatedShell() {
+  const { child } = useSelectedChild();
+  const location = useLocation();
+  const [isAddOpen, setAddOpen] = useState(false);
+
+  // בהגדרות אין טעם בכפתור הוספת רגע
+  const showAddButton = !!child && location.pathname !== '/settings';
+
+  return (
+    <div className="mx-auto min-h-screen max-w-lg bg-sand-50 md:max-w-2xl">
+      <main>
+        <Routes>
+          <Route path="/" element={<HomeScreen />} />
+          <Route path="/timeline" element={<TimelineScreen />} />
+          <Route path="/gallery" element={<GalleryScreen />} />
+          <Route path="/search" element={<SearchScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+        </Routes>
+      </main>
+
+      {showAddButton && <AddMomentButton onClick={() => setAddOpen(true)} />}
+      <BottomNav />
+
+      {isAddOpen && child && <QuickAddForm childId={child.id} onClose={() => setAddOpen(false)} />}
+    </div>
+  );
+}
 
 export default function App() {
   const { userId, isAuthLoading, setAuthInfo } = useAppStore();
+  const [familyError, setFamilyError] = useState<FamilyError | null>(null);
+
+  const checkFamily = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      await ensureFamilyExists(user);
+      setFamilyError(null);
+    } catch (err) {
+      console.error('שגיאה ביצירת/בדיקת רשומת המשפחה:', err);
+      const { code, message } = describeError(err);
+      // באנר לא-חוסם (במקום alert) שמציג את הסיבה האמיתית, כדי שאפשר יהיה לתקן
+      setFamilyError({
+        title: 'לא הצלחנו להתחבר לנתוני המשפחה בענן',
+        message: code ? `${message} (${code})` : message
+      });
+    }
+  }, []);
 
   useEffect(() => {
     // מאזין למצב ההתחברות. Firebase Auth שומר סשן מקומית באופן אוטומטי,
@@ -38,26 +106,49 @@ export default function App() {
         return;
       }
       setAuthInfo({ userId: user.uid });
-      ensureFamilyExists(user).catch((err) => {
-        console.error('שגיאה ביצירת/בדיקת רשומת המשפחה:', err);
-        // זמני - רק כדי לראות את השגיאה בפועל על המסך, נסיר אחרי שנפתור.
-        alert('שגיאת סנכרון משפחה:\n' + (err?.code ?? '') + '\n' + (err?.message ?? String(err)));
-      });
+
+      // פתיחה ללא אינטרנט: משתמשים ב-familyId האחרון ששמרנו במכשיר, כדי שהאפליקציה
+      // תיפתח מיד עם הנתונים המקומיים (ולא תיתקע על "טוען..."). ברגע שהחיבור חוזר
+      // המאזין החי למטה מאמת/מעדכן את הערך.
+      const cached = readCachedFamily(user.uid);
+      if (cached) {
+        setAuthInfo({ familyId: cached, isAuthLoading: false });
+        syncEngine.setFamilyId(cached);
+      }
+      // רשת אחרונה: גם אם שום דבר לא הגיע תוך כמה שניות, לא נשארים על "טוען..." לנצח
+      window.setTimeout(() => {
+        if (useAppStore.getState().isAuthLoading) setAuthInfo({ isAuthLoading: false });
+      }, 8000);
+
+      void checkFamily();
     });
     return unsubscribeAuth;
-  }, [setAuthInfo]);
+  }, [setAuthInfo, checkFamily]);
 
   useEffect(() => {
     if (!userId) return;
 
     // מאזין חי (לא קריאה חד-פעמית) לרשומת המשפחה. זה פותר את מרוץ התזמון:
     // ברגע שהמשפחה נכתבת בפועל בפיירסטור - העדכון מגיע אוטומטית.
-    const unsubscribeFamily = subscribeToUserFamilyId(userId, (familyId) => {
-      setAuthInfo({ familyId, isAuthLoading: false });
-      // ברגע שיש familyId (כולל בהתקנה חדשה של האפליקציה, או כניסה ממכשיר
-      // אחר) - מושכים את כל הנתונים הקיימים מהענן חזרה למכשיר הזה.
-      syncEngine.setFamilyId(familyId);
-    });
+    const unsubscribeFamily = subscribeToUserFamilyId(
+      userId,
+      (familyId) => {
+        setAuthInfo({ familyId, isAuthLoading: false });
+        writeCachedFamily(userId, familyId);
+        // ברגע שיש familyId (כולל בהתקנה חדשה של האפליקציה, או כניסה ממכשיר
+        // אחר) - מושכים את כל הנתונים הקיימים מהענן חזרה למכשיר הזה.
+        syncEngine.setFamilyId(familyId);
+      },
+      (err) => {
+        console.error('שגיאה בקריאת פרופיל המשתמש:', err);
+        const { code, message } = describeError(err);
+        setAuthInfo({ isAuthLoading: false });
+        setFamilyError({
+          title: 'לא הצלחנו לקרוא את פרופיל המשתמש בענן',
+          message: code ? `${message} (${code})` : message
+        });
+      }
+    );
     return unsubscribeFamily;
   }, [userId, setAuthInfo]);
 
@@ -75,38 +166,16 @@ export default function App() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-sand-50 md:max-w-2xl">
-      <main>
-        <Routes>
-          <Route path="/" element={<HomeScreen />} />
-          <Route path="/timeline" element={<TimelineScreen />} />
-          <Route path="/gallery" element={<GalleryScreen />} />
-          <Route path="/search" element={<SearchScreen />} />
-          <Route path="/settings" element={<SettingsScreen />} />
-        </Routes>
-      </main>
-
-      <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-lg -translate-x-1/2 px-3 pb-safe pb-3 md:max-w-2xl">
-        <div className="flex items-center justify-around gap-1 rounded-[2rem] border border-sand-200/70 bg-white/95 px-2 py-2 shadow-warm-lg backdrop-blur">
-          {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'bg-honey/12 text-honey-dark'
-                    : 'text-ink-soft hover:bg-sand-100 hover:text-ink'
-                }`
-              }
-            >
-              <Icon size={20} />
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
-    </div>
+    <>
+      {familyError && (
+        <ErrorBanner
+          title={familyError.title}
+          message={familyError.message}
+          onRetry={() => void checkFamily()}
+          onDismiss={() => setFamilyError(null)}
+        />
+      )}
+      <AuthenticatedShell />
+    </>
   );
 }

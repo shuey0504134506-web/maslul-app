@@ -2,6 +2,10 @@ rules_version = '2';
 
 // נתיב הקבצים: families/{familyId}/milestones/{milestoneId}/{fileId}
 // גישה מותנית בחברות פעילה במשפחה, נבדקת מול Firestore.
+//
+// שינוי חשוב: בגרסה הקודמת כלל ה-write אחד כלל גם מחיקה, ובמחיקה אין
+// request.resource (הוא null), ולכן הבדיקה של הגודל נכשלה והמחיקה נחסמה תמיד.
+// עכשיו הגבלת הגודל חלה רק על יצירה/עדכון, ומחיקה מותרת לחברי המשפחה.
 
 service firebase.storage {
   match /b/{bucket}/o {
@@ -13,9 +17,12 @@ service firebase.storage {
 
     match /families/{familyId}/{allPaths=**} {
       allow read: if isFamilyMember(familyId);
-      allow write: if isFamilyMember(familyId)
-        // הגבלת גודל: עד 200MB לקובץ בודד (סרטונים כלולים)
+
+      // הגבלת גודל: עד 200MB לקובץ בודד (סרטונים כלולים)
+      allow create, update: if isFamilyMember(familyId)
         && request.resource.size < 200 * 1024 * 1024;
+
+      allow delete: if isFamilyMember(familyId);
     }
   }
 }

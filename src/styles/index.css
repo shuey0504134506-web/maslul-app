@@ -6,6 +6,13 @@ html {
   direction: rtl;
 }
 
+/* ריווח תחתון שמכבד את אזור הבטיחות של הטלפון (פס הבית / ניווט מערכת) */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 body {
   -webkit-font-smoothing: antialiased;
 }

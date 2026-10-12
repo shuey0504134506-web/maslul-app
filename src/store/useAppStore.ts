@@ -14,13 +14,32 @@ interface AppState extends AuthInfo {
   setAuthInfo: (info: Partial<AuthInfo>) => void;
 }
 
+const SELECTED_CHILD_KEY = 'maslul:selected-child';
+
+function readSelectedChild(): string | null {
+  try {
+    return localStorage.getItem(SELECTED_CHILD_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export const useAppStore = create<AppState>((set) => ({
-  selectedChildId: null,
+  // נשמר בין הפעלות, כדי שאחרי פתיחה מחדש של האפליקציה יוצג אותו ילד
+  selectedChildId: readSelectedChild(),
   isOnline: navigator.onLine,
   userId: null,
   familyId: null,
   isAuthLoading: true,
-  setSelectedChildId: (id) => set({ selectedChildId: id }),
+  setSelectedChildId: (id) => {
+    try {
+      if (id) localStorage.setItem(SELECTED_CHILD_KEY, id);
+      else localStorage.removeItem(SELECTED_CHILD_KEY);
+    } catch {
+      /* אחסון לא זמין - לא קריטי */
+    }
+    set({ selectedChildId: id });
+  },
   setOnline: (isOnline) => set({ isOnline }),
   setAuthInfo: (info) => set(info)
 }));

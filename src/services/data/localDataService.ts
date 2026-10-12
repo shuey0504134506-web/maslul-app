@@ -54,7 +54,7 @@ export async function createChild(input: {
 
 export async function updateChild(
   id: string,
-  patch: Partial<Pick<Child, 'name' | 'birthDate' | 'gender' | 'themeColor'>>
+  patch: Partial<Pick<Child, 'name' | 'birthDate' | 'gender' | 'themeColor' | 'photoURL'>>
 ): Promise<void> {
   const { userId } = currentIdentity();
   await db.children.update(id, {

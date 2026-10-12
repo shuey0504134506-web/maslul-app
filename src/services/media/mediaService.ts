@@ -3,6 +3,8 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db } from '@/db/schema';
 import { storage } from '@/services/firebase/config';
 import { useAppStore } from '@/store/useAppStore';
+import { syncEngine } from '@/services/sync/syncEngine';
+import { describeError } from '@/utils/firebaseErrors';
 import type { LocalMediaFile, MediaRef } from '@/types';
 
 /**
@@ -108,7 +110,8 @@ async function uploadSingleFile(localId: string) {
 
     await patchMilestoneMediaRef(record.milestoneId, localId, storagePath, downloadUrl);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'שגיאת העלאת מדיה';
+    const { code, message: friendly } = describeError(err);
+    const message = code ? `${friendly} (${code})` : friendly || 'שגיאת העלאת מדיה';
     await db.mediaFiles.update(localId, {
       status: 'failed',
       retryCount: (record.retryCount ?? 0) + 1,
@@ -133,7 +136,15 @@ async function patchMilestoneMediaRef(
       : m
   );
 
-  await db.milestones.update(milestoneId, { media: updatedMedia });
+  // חשוב: מסמנים את הרשומה כממתינה ומכניסים לתור הסנכרון, אחרת כתובת ההורדה
+  // נשמרת רק במכשיר הזה, והענן נשאר עם הפניה בלי כתובת. בגלל זה, בכניסה
+  // ממכשיר חדש או אחרי התקנה מחדש, התמונות לא חזרו.
+  await db.milestones.update(milestoneId, {
+    media: updatedMedia,
+    updatedAt: Date.now(),
+    syncStatus: 'pending'
+  });
+  await syncEngine.enqueue({ entityType: 'milestone', entityId: milestoneId, operation: 'update' });
 }
 
 /**

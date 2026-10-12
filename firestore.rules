@@ -3,6 +3,16 @@ rules_version = '2';
 // עיקרון הבסיס: לכל מסמך יש familyId, ומשתמש רשאי לגשת אליו רק אם הוא
 // חבר רשום במשפחה הזו (families/{familyId}/members/{uid}).
 // כך משפחה אחת לעולם לא יכולה לגשת לנתונים של משפחה אחרת.
+//
+// תוספות בגרסה זו:
+// 1. אי אפשר עוד להצטרף לכל משפחה סתם כך - רק בעל המשפחה (ownerId) יכול להוסיף חברים,
+//    ורק משתמש שהוא ה-ownerId רשאי ליצור לעצמו חברות כ-owner.
+// 2. יוצר הרשומה (createdBy) תמיד יכול לקרוא אותה, גם אם רשומת החברות שלו
+//    במשפחה נמחקה/נוצרה מחדש. זה מאפשר לשחזר נתונים "יתומים" אחרי תקלה.
+// 3. אי אפשר "להעביר" רשומה למשפחה אחרת בעדכון, אלא אם יוצר הרשומה הוא זה שמעביר
+//    אותה למשפחה שבה הוא עורך (זה מנגנון השחזור).
+// 4. מחיקה של מסמך שכבר לא קיים (resource == null) מותרת - אחרת פעולת מחיקה
+//    שנתקעה בתור הסנכרון הייתה נכשלת לנצח.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -11,50 +21,117 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function familyPath(familyId) {
+      return /databases/$(database)/documents/families/$(familyId);
+    }
+
+    function memberPath(familyId) {
+      return /databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid);
+    }
+
     function isFamilyMember(familyId) {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+      return isSignedIn() && exists(memberPath(familyId));
     }
 
     function canEdit(familyId) {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid)).data.role in ['owner', 'editor'];
+      return isSignedIn()
+        && exists(memberPath(familyId))
+        && get(memberPath(familyId)).data.role in ['owner', 'editor'];
     }
 
+    function isFamilyOwner(familyId) {
+      return isSignedIn()
+        && exists(familyPath(familyId))
+        && get(familyPath(familyId)).data.ownerId == request.auth.uid;
+    }
+
+    // ---------- משפחות ----------
     match /families/{familyId} {
       allow read: if isFamilyMember(familyId);
-      allow create: if isSignedIn();
-      allow update, delete: if canEdit(familyId);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if canEdit(familyId)
+        && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
 
       match /members/{memberId} {
         allow read: if isFamilyMember(familyId);
-        allow write: if canEdit(familyId) || request.auth.uid == memberId;
+        allow create: if isFamilyOwner(familyId)
+          && request.resource.data.role in ['owner', 'editor', 'viewer'];
+        allow update: if isFamilyOwner(familyId);
+        // בעל המשפחה מנהל חברים; כל חבר רשאי לעזוב בעצמו
+        allow delete: if isFamilyOwner(familyId)
+          || (isSignedIn() && request.auth.uid == memberId);
       }
     }
 
-    match /children/{childId} {
-      allow read: if isFamilyMember(resource.data.familyId);
-      allow create: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
-      allow update, delete: if canEdit(resource.data.familyId);
+    // ---------- נתוני המשפחה ----------
+    // אותם כללים לכל ארבעת סוגי הרשומות.
+
+    match /children/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.createdBy == request.auth.uid || isFamilyMember(resource.data.familyId));
+      allow create: if isSignedIn()
+        && canEdit(request.resource.data.familyId)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && (
+          (request.resource.data.familyId == resource.data.familyId && canEdit(resource.data.familyId))
+          || (resource.data.createdBy == request.auth.uid && canEdit(request.resource.data.familyId))
+        );
+      allow delete: if isSignedIn()
+        && (resource == null || canEdit(resource.data.familyId) || resource.data.createdBy == request.auth.uid);
     }
 
-    match /milestones/{milestoneId} {
-      allow read: if isFamilyMember(resource.data.familyId);
-      allow create: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
-      allow update, delete: if canEdit(resource.data.familyId);
+    match /milestones/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.createdBy == request.auth.uid || isFamilyMember(resource.data.familyId));
+      allow create: if isSignedIn()
+        && canEdit(request.resource.data.familyId)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && (
+          (request.resource.data.familyId == resource.data.familyId && canEdit(resource.data.familyId))
+          || (resource.data.createdBy == request.auth.uid && canEdit(request.resource.data.familyId))
+        );
+      allow delete: if isSignedIn()
+        && (resource == null || canEdit(resource.data.familyId) || resource.data.createdBy == request.auth.uid);
     }
 
-    match /funnyQuotes/{quoteId} {
-      allow read: if isFamilyMember(resource.data.familyId);
-      allow create: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
-      allow update, delete: if canEdit(resource.data.familyId);
+    match /funnyQuotes/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.createdBy == request.auth.uid || isFamilyMember(resource.data.familyId));
+      allow create: if isSignedIn()
+        && canEdit(request.resource.data.familyId)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && (
+          (request.resource.data.familyId == resource.data.familyId && canEdit(resource.data.familyId))
+          || (resource.data.createdBy == request.auth.uid && canEdit(request.resource.data.familyId))
+        );
+      allow delete: if isSignedIn()
+        && (resource == null || canEdit(resource.data.familyId) || resource.data.createdBy == request.auth.uid);
     }
 
-    match /suggestedMilestoneStatus/{statusId} {
-      allow read: if isFamilyMember(resource.data.familyId);
-      allow create, update: if isSignedIn() && isFamilyMember(request.resource.data.familyId);
+    match /suggestedMilestoneStatus/{docId} {
+      allow read: if isSignedIn()
+        && (resource.data.createdBy == request.auth.uid || isFamilyMember(resource.data.familyId));
+      allow create: if isSignedIn()
+        && canEdit(request.resource.data.familyId)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && (
+          (request.resource.data.familyId == resource.data.familyId && canEdit(resource.data.familyId))
+          || (resource.data.createdBy == request.auth.uid && canEdit(request.resource.data.familyId))
+        );
+      allow delete: if isSignedIn()
+        && (resource == null || canEdit(resource.data.familyId) || resource.data.createdBy == request.auth.uid);
     }
 
+    // ---------- פרופיל משתמש ----------
     match /users/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
